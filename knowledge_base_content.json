@@ -28,10 +28,108 @@
         }
     },
     {
+        "content": "Dicionário: 'frango' significa frango abatido.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "frango"
+        }
+    },
+    {
         "content": "Dicionário: 'leite de moça' significa leite condensado.",
         "metadata": {
             "type": "dictionary",
             "term": "leite de moça"
+        }
+    },
+    {
+        "content": "Dicionário: 'salsa' significa salsinha (tempero).",
+        "metadata": {
+            "type": "dictionary",
+            "term": "salsa"
+        }
+    },
+    {
+        "content": "Dicionário: 'xilito' ou 'chilito' significa salgadinho tipo Fandangos/Cheetos.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "xilito"
+        }
+    },
+    {
+        "content": "Dicionário: 'batigoot' ou 'batgut' significa iogurte em saco.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "batigoot"
+        }
+    },
+    {
+        "content": "Dicionário: 'coca' significa Coca Cola.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "coca"
+        }
+    },
+    {
+        "content": "Dicionário: 'bolacha' significa biscoito.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "bolacha"
+        }
+    },
+    {
+        "content": "Dicionário: 'sobrecoxa' significa sobrecoxa mq.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "sobrecoxa"
+        }
+    },
+    {
+        "content": "Dicionário: 'coxa com sobrecoxa' significa coxa sobrecoxa mq.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "coxa com sobrecoxa"
+        }
+    },
+    {
+        "content": "Dicionário: 'asinha de frango' significa asa de frango mq.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "asinha de frango"
+        }
+    },
+    {
+        "content": "Dicionário: 'coxinha da asa' significa coxinha da asa mq.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "coxinha da asa"
+        }
+    },
+    {
+        "content": "Dicionário: 'carne moida' ou 'mida' significa carne moída de primeira.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "carne moida"
+        }
+    },
+    {
+        "content": "Dicionário: 'acem bovino' significa lombo bovino.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "acem bovino"
+        }
+    },
+    {
+        "content": "Dicionário: 'que boa', 'aqui boa', 'qboa' ou 'kiboa' significa água sanitária.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "agua sanitaria"
+        }
+    },
+    {
+        "content": "Dicionário: 'farinha' pode ser farinha branca, farinha amarela ou farinha d'água.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "farinha"
         }
     },
     {
@@ -81,20 +179,6 @@
         "metadata": {
             "type": "dictionary",
             "term": "macarrão de cabelo"
-        }
-    },
-    {
-        "content": "Dicionário: 'xilito' ou 'chilito' significa salgadinho tipo Fandangos, Cheetos ou da marca Lipy.",
-        "metadata": {
-            "type": "dictionary",
-            "term": "xilito"
-        }
-    },
-    {
-        "content": "Dicionário: 'batigoot' ou 'batgut' significa iogurte em saco ou similar.",
-        "metadata": {
-            "type": "dictionary",
-            "term": "batigoot"
         }
     },
     {
