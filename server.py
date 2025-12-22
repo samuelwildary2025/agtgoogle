@@ -123,8 +123,8 @@ def process_pdf_uaz(message_id: str) -> Optional[str]:
 
 def transcribe_audio_uaz(message_id: str) -> Optional[str]:
     """
-    Transcreve áudio usando Google Gemini.
-    Primeiro baixa o áudio via UAZ, depois envia para Gemini transcrever.
+    Transcreve áudio usando Google Gemini ou OpenAI Whisper.
+    Prioriza Gemini se configurado, fallback para Whisper.
     """
     if not message_id: return None
     
@@ -134,11 +134,17 @@ def transcribe_audio_uaz(message_id: str) -> Optional[str]:
         logger.error(f"❌ Não foi possível obter URL do áudio: {message_id}")
         return None
     
+    # 2. Baixar o áudio
+    try:
+        audio_response = requests.get(audio_url, timeout=20)
+        audio_response.raise_for_status()
+        audio_data = audio_response.content
+        content_type = audio_response.headers.get('content-type', 'audio/ogg')
     except Exception as e:
-        logger.error(f"Erro ao baixar áudio: {e}")
+        logger.error(f"Erro ao baixar áudio para transcrição: {e}")
         return None
 
-    # Tenta usar Google Gemini
+    # 3. Tenta usar Google Gemini
     if settings.google_api_key:
         try:
             from google import genai
@@ -182,9 +188,9 @@ def transcribe_audio_uaz(message_id: str) -> Optional[str]:
 
         except Exception as e:
             logger.error(f"Erro transcrição Gemini: {e}")
-            # Se falhar, tenta OpenAI abaixo (não retorna None direto)
+            # Se falhar, tenta OpenAI abaixo
 
-    # Fallback: Tenta usar OpenAI Whisper
+    # 4. Fallback: Tenta usar OpenAI Whisper
     if settings.openai_api_key:
         try:
             from openai import OpenAI
