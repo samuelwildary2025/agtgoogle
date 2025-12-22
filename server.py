@@ -134,73 +134,85 @@ def transcribe_audio_uaz(message_id: str) -> Optional[str]:
         logger.error(f"❌ Não foi possível obter URL do áudio: {message_id}")
         return None
     
-    try:
-        logger.info(f"🎧 Transcrevendo áudio com Gemini: {message_id}")
-        
-        # 2. Baixar o áudio
-        audio_response = requests.get(audio_url, timeout=20)
-        audio_response.raise_for_status()
-        audio_data = audio_response.content
-        
-        # Detectar tipo de áudio pelo content-type ou extensão
-        content_type = audio_response.headers.get('content-type', 'audio/ogg')
-        
-        # 3. Usar Google Gemini para transcrever
-        from google import genai
-        
-        client = genai.Client(api_key=settings.google_api_key)
-        
-        # Upload do áudio para o Gemini
-        import tempfile
-        import os as os_module
-        
-        # Determinar extensão baseada no content-type
-        ext_map = {
-            'audio/ogg': '.ogg',
-            'audio/mpeg': '.mp3',
-            'audio/mp4': '.m4a',
-            'audio/wav': '.wav',
-            'audio/webm': '.webm',
-        }
-        ext = ext_map.get(content_type.split(';')[0], '.ogg')
-        
-        # Salvar temporariamente
-        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-            tmp.write(audio_data)
-            tmp_path = tmp.name
-        
+    except Exception as e:
+        logger.error(f"Erro ao baixar áudio: {e}")
+        return None
+
+    # Tenta usar Google Gemini
+    if settings.google_api_key:
         try:
-            # Upload do arquivo para Gemini
-            audio_file = client.files.upload(file=tmp_path)
+            from google import genai
+            import tempfile
+            import os as os_module
+
+            client = genai.Client(api_key=settings.google_api_key)
+
+            # Determinar extensão
+            ext_map = {
+                'audio/ogg': '.ogg',
+                'audio/mpeg': '.mp3',
+                'audio/mp4': '.m4a',
+                'audio/wav': '.wav',
+                'audio/webm': '.webm',
+            }
+            ext = ext_map.get(content_type.split(';')[0], '.ogg')
+
+            # Salvar temporariamente
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                tmp.write(audio_data)
+                tmp_path = tmp.name
+
+            try:
+                # Upload e Transcrição
+                audio_file = client.files.upload(file=tmp_path)
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash-lite",
+                    contents=[
+                        "Transcreva este áudio para texto em português brasileiro. Retorne APENAS o texto transcrito.",
+                        audio_file
+                    ]
+                )
+                transcription = response.text.strip() if response.text else None
+                if transcription:
+                    logger.info(f"✅ Áudio transcrito com Gemini: {transcription[:50]}...")
+                    return transcription
+            finally:
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+
+        except Exception as e:
+            logger.error(f"Erro transcrição Gemini: {e}")
+            # Se falhar, tenta OpenAI abaixo (não retorna None direto)
+
+    # Fallback: Tenta usar OpenAI Whisper
+    if settings.openai_api_key:
+        try:
+            from openai import OpenAI
+            import io
+
+            logger.info("🎧 Tentando transcrição com OpenAI Whisper...")
+            client = OpenAI(api_key=settings.openai_api_key)
             
-            # Transcrever usando Gemini
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
-                contents=[
-                    "Transcreva este áudio para texto em português brasileiro. Retorne APENAS o texto transcrito, sem explicações.",
-                    audio_file
-                ]
+            # Whisper requer arquivo com nome/extensão
+            # Usando BytesIO com name attribute hack
+            f = io.BytesIO(audio_data)
+            f.name = "audio.ogg" # Whisper aceita OGG
+
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1", 
+                file=f,
+                language="pt"
             )
             
-            transcription = response.text.strip() if response.text else None
-            
-            if transcription:
-                logger.info(f"✅ Áudio transcrito com Gemini: {transcription[:50]}...")
-                return transcription
-            else:
-                logger.warning("⚠️ Gemini retornou transcrição vazia")
-                return None
-                
-        finally:
-            # Limpar arquivo temporário
-            try:
-                os_module.unlink(tmp_path)
-            except:
-                pass
-            
-    except Exception as e:
-        logger.error(f"Erro transcrição Gemini: {e}")
-        return None
+            text = transcript.text.strip()
+            if text:
+                logger.info(f"✅ Áudio transcrito com Whisper: {text[:50]}...")
+                return text
+        except Exception as e:
+            logger.error(f"Erro transcrição OpenAI: {e}")
+
+    logger.warning("❌ Falha na transcrição: sem chaves API válidas ou erros em ambos providers.")
+    return None
 
 def _extract_incoming(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
