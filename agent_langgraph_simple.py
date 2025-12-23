@@ -7,7 +7,7 @@ from typing import Dict, Any, TypedDict, Sequence, List
 import re
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -462,18 +462,36 @@ def run_agent_langgraph(telefone: str, mensagem: str) -> Dict[str, Any]:
         
         # Fallback se ainda estiver vazio
         if not output or not output.strip():
-            # Logar o que foi rejeitado para debug
+            # NOVO: Verificar se há ToolMessage recente (indica que a tool rodou mas LLM não respondeu)
             if isinstance(result, dict) and "messages" in result:
-                last_ai = None
-                for msg in reversed(result["messages"]):
-                    if isinstance(msg, AIMessage):
-                        last_ai = msg
+                messages = result["messages"]
+                
+                # Procurar pelo último ToolMessage (resultado da ferramenta)
+                last_tool_msg = None
+                for msg in reversed(messages):
+                    if isinstance(msg, ToolMessage):
+                        last_tool_msg = msg
                         break
-                if last_ai:
-                    logger.warning(f"⚠️ Última AIMessage rejeitada: content='{str(last_ai.content)[:200]}' tool_calls={getattr(last_ai, 'tool_calls', None)}")
-            
-            output = "Desculpe, não consegui processar sua solicitação. Pode repetir?"
-            logger.warning("⚠️ Resposta vazia do LLM, usando fallback")
+                
+                if last_tool_msg and last_tool_msg.content:
+                    # O LLM não gerou resposta após a tool, usar o conteúdo da tool como fallback
+                    tool_content = str(last_tool_msg.content)
+                    logger.info(f"🔧 Usando ToolMessage como fallback: {tool_content[:100]}...")
+                    
+                    # Formatar a resposta baseada no conteúdo da tool
+                    if "PRODUTOS_ENCONTRADOS" in tool_content:
+                        # É resultado de busca, formatar como resposta
+                        output = f"Deixa eu ver aqui... 📝\n\n{tool_content}\n\nQuer que eu coloque algum desses no carrinho?"
+                    else:
+                        # Outro tipo de tool, usar direto
+                        output = tool_content
+                else:
+                    # Não encontrou ToolMessage, usar fallback genérico
+                    logger.warning("⚠️ Resposta vazia do LLM e nenhum ToolMessage encontrado")
+                    output = "Desculpe, não consegui processar sua solicitação. Pode repetir?"
+            else:
+                output = "Desculpe, não consegui processar sua solicitação. Pode repetir?"
+                logger.warning("⚠️ Resposta vazia do LLM, usando fallback")
         
         logger.info("✅ Agente executado")
         logger.info(f"💬 RESPOSTA: {output[:200]}{'...' if len(output) > 200 else ''}")
