@@ -245,13 +245,21 @@ def load_system_prompt() -> str:
                 if meta.get("type") == "dictionary":
                     term = meta.get("term", "?")
                     content = item.get("content", "")
-                    # Extrair significado se possível, ou usar o content todo
-                    dict_items.append(f"- {content}")
+                    # Extrair o termo de busca do conteúdo
+                    # Formato esperado: "Dicionário: 'X' significa Y."
+                    import re
+                    match = re.search(r"significa\s+(.+?)\.?$", content)
+                    if match:
+                        translation = match.group(1).strip().rstrip('.')
+                        dict_items.append(f"| {term} | {translation} |")
+                    else:
+                        # Fallback: usar content como tradução
+                        dict_items.append(f"| {term} | {content} |")
             
             if dict_items:
                 dict_text = "\n".join(dict_items)
             else:
-                dict_text = "Nenhum termo regional carregado."
+                dict_text = "| (nenhum termo) | - |"
     except Exception as e:
         logger.error(f"Erro ao carregar KB: {e}")
         dict_text = "Erro ao carregar dicionário."
