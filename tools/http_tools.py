@@ -532,8 +532,8 @@ def estoque_preco(ean: str) -> str:
             return None
 
         # [OTIMIZAÇÃO] Filtro estrito para saída
-        # EXCEÇÃO: EAN 550 (frango abatido) e 231 (tomate) sempre disponíveis
-        ALWAYS_AVAILABLE_EANS = ["550", "231"]
+        # EXCEÇÃO: EAN 550 (frango abatido) sempre disponível
+        ALWAYS_AVAILABLE_EANS = ["550"]
         is_always_available = ean_digits in ALWAYS_AVAILABLE_EANS
         
         sanitized: list[Dict[str, Any]] = []
@@ -743,7 +743,7 @@ def busca_file_search(query: str) -> str:
 
 REGRAS:
 1. Retorne uma lista com até 10 produtos relevantes.
-2. Priorize produtos com estoque ou maior relevância semântica.
+2. ORDENE por relevância: equivalência exata e produtos principais no topo. Ignorar acessórios se houver o produto principal.
 3. Se a busca for genérica (ex: "arroz"), retorne marcas variadas se possível.
 
 Formato de resposta:

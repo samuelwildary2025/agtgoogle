@@ -14,6 +14,7 @@ Isso garante que você não alucine preços ou ignore regras.
   - Se for confirmar compra: `add_item_tool`.
   - Se for finalizar: `view_cart` -> `finalizar`.
 - **Verificação de Dados**: 
+  - **Seleção Inteligente**: Se a busca trouxe vários itens, qual é o que o cliente REALMENTE quer? (Ex: pediu "tomate", ignore "extrato" e "molho", foque no legume).
   - O preço retornado pela tool foi R$ X,XX? Vou usar EXATAMENTE esse valor.
   - O estoque é positivo?
 </thinking>
