@@ -532,17 +532,20 @@ def estoque_preco(ean: str) -> str:
             return None
 
         # [OTIMIZAÇÃO] Filtro estrito para saída
-        # EXCEÇÃO: EAN 550 (frango abatido) sempre disponível mesmo com estoque negativo
-        ALWAYS_AVAILABLE_EANS = ["550"]
+        # EXCEÇÃO: EAN 550 (frango abatido) e 231 (tomate) sempre disponíveis
+        ALWAYS_AVAILABLE_EANS = ["550", "231"]
         is_always_available = ean_digits in ALWAYS_AVAILABLE_EANS
         
         sanitized: list[Dict[str, Any]] = []
         for it in items:
             if not isinstance(it, dict):
                 continue
-            # Se é EAN especial, não verificar estoque; caso contrário, verificar
-            if not is_always_available and not _is_available(it):
-                continue  # manter apenas itens com estoque/disponibilidade
+            
+            # Verificar disponibilidade real
+            real_availability = _is_available(it)
+            
+            # Se for sempre disponível, forçamos True
+            final_availability = True if is_always_available else real_availability
 
             # Cria dict limpo apenas com campos essenciais
             clean = {}
@@ -551,8 +554,8 @@ def estoque_preco(ean: str) -> str:
             for k in ["produto", "nome", "descricao", "id", "ean", "cod_barra"]:
                 if k in it: clean[k] = it[k]
 
-            # Normalizar disponibilidade (se passou no _is_available, é True)
-            clean["disponibilidade"] = True
+            # Definir disponibilidade final
+            clean["disponibilidade"] = final_availability
 
             # Normalizar preço em campo unificado
             price = _extract_price(it)
@@ -565,7 +568,7 @@ def estoque_preco(ean: str) -> str:
 
             sanitized.append(clean)
 
-        logger.info(f"EAN {ean_digits}: {len(sanitized)} item(s) disponíveis após filtragem")
+        logger.info(f"EAN {ean_digits}: {len(sanitized)} item(s) procecsados (incluindo indisponíveis)")
 
         return json.dumps(sanitized, indent=2, ensure_ascii=False)
 
@@ -877,6 +880,7 @@ def busca_file_search_com_preco(produtos: list) -> str:
                     ean = ean_match.group(1)
             
             # 3. Consultar preço se encontrou EAN
+            # 3. Consultar preço se encontrou EAN
             if ean:
                 preco_result = estoque_preco(ean)
                 try:
@@ -885,11 +889,12 @@ def busca_file_search_com_preco(produtos: list) -> str:
                         item = preco_data[0]
                         nome = item.get("produto", item.get("nome", nome))
                         preco = item.get("preco", 0)
-                        return {"produto": nome, "preco": preco, "ean": ean, "erro": None}
+                        disponivel = item.get("disponibilidade", False)
+                        return {"produto": nome, "preco": preco, "ean": ean, "disponivel": disponivel, "erro": None}
                 except:
                     pass
             
-            return {"produto": nome, "preco": None, "ean": ean, "erro": "Preço não encontrado"}
+            return {"produto": nome, "preco": None, "ean": ean, "disponivel": False, "erro": "Preço não encontrado"}
             
         except Exception as e:
             logger.error(f"Erro ao buscar {produto}: {e}")
@@ -925,8 +930,12 @@ def busca_file_search_com_preco(produtos: list) -> str:
     
     for r in resultados:
         if r["preco"] is not None:
-            # Check if redundant name
-            encontrados.append(f"• {r['produto']} - R${r['preco']:.2f}")
+            if r.get("disponivel", False):
+                # Produto Disponível
+                encontrados.append(f"• {r['produto']} - R${r['preco']:.2f}")
+            else:
+                # Produto Indisponível (mas encontrado)
+                encontrados.append(f"• {r['produto']} - INDISPONÍVEL (Sem estoque)")
         else:
             # Só adiciona a lista de não encontrados se não for um EAN extra que falhou
             if "EAN" not in r['produto']:
