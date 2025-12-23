@@ -162,6 +162,7 @@ if __name__ == "__main__":
     parser.add_argument("--upload", type=str, help="Fazer upload de arquivo JSON")
     parser.add_argument("--store", type=str, help="Nome do store para operações")
     parser.add_argument("--exemplo", action="store_true", help="Criar arquivo de produtos de exemplo")
+    parser.add_argument("--search", type=str, help="Buscar produtos por query (requer GOOGLE_API_KEY)")
     
     args = parser.parse_args()
     
@@ -179,9 +180,25 @@ if __name__ == "__main__":
     if args.upload and args.store:
         upload_produtos(args.store, args.upload)
     
-    if not any([args.criar, args.listar, args.upload, args.exemplo]):
+    if args.search:
+        import sys
+        sys.path.append(os.getcwd())
+        # Tentar importar de http_tools, se falhar, implementar busca direta
+        try:
+            from tools.http_tools import busca_file_search
+            print(f"\n🔍 Buscando '{args.search}' no File Search...")
+            resultado = busca_file_search(args.search)
+            print("\nRESULTADO RAW:")
+            print(resultado)
+        except Exception as e:
+            print(f"❌ Erro ao importar/buscar: {e}")
+            # Fallback para implementação local caso imports falhem
+            pass
+    
+    if not any([args.criar, args.listar, args.upload, args.exemplo, args.search]):
         print("Uso:")
         print("  python3 setup_file_search.py --criar              # Criar store")
         print("  python3 setup_file_search.py --listar             # Listar stores")
         print("  python3 setup_file_search.py --exemplo            # Criar JSON exemplo")
         print("  python3 setup_file_search.py --store NOME --upload arquivo.json")
+        print("  python3 setup_file_search.py --search 'tomate'    # Testar busca")
