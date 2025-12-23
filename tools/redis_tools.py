@@ -265,6 +265,11 @@ def mark_order_sent(telefone: str, order_id: str = None) -> bool:
         session["order_id"] = order_id
         
         client.set(key, json.dumps(session), ex=MODIFICATION_TTL)
+        
+        # Marcar histórico como enviado
+        history_key = f"order_history:{telefone}"
+        client.set(history_key, "sent", ex=7200) # 2 horas
+        
         logger.info(f"✅ Pedido marcado como enviado para {telefone} (TTL modificação: {MODIFICATION_TTL//60}min)")
         return True
     except Exception as e:
@@ -303,9 +308,12 @@ def get_order_context(telefone: str) -> str:
     if session is None:
         # Verificar se tinha sessão anterior (expirou)
         had_previous = False
+        previous_status = None
+        
         if client:
             try:
-                had_previous = client.get(history_key) is not None
+                previous_status = client.get(history_key)
+                had_previous = previous_status is not None
             except:
                 pass
         
@@ -313,6 +321,7 @@ def get_order_context(telefone: str) -> str:
         start_order_session(telefone)
         
         # Marcar que cliente tem histórico (TTL de 2 horas)
+        # Reseta para "1" (active) para indicar que agora tem sessão ativa
         if client:
             try:
                 client.set(history_key, "1", ex=7200)  # 2 horas
@@ -320,8 +329,11 @@ def get_order_context(telefone: str) -> str:
                 pass
         
         if had_previous:
-            # Sessão expirou - avisar o agente
-            return "[SESSÃO] Sessão anterior expirou (40min). Novo pedido iniciado. Avise o cliente que o pedido anterior não foi finalizado e pergunte se quer começar um novo."
+            # Sessão expirou - verificar se foi finalizado ou abandonado
+            if previous_status == "sent":
+                return "[SESSÃO] Janela de modificação expirou. Iniciando novo pedido do zero."
+            else:
+                return "[SESSÃO] Sessão anterior expirou. Iniciando novo pedido. Avise que o anterior não foi finalizado."
         else:
             # Conversa nova
             return "[SESSÃO] Nova conversa. Monte o pedido normalmente."
