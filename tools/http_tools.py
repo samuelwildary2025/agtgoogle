@@ -731,12 +731,17 @@ def busca_file_search(query: str) -> str:
         "contents": [
             {
                 "parts": [{
-                    "text": f"""Busque no catálogo de produtos o seguinte: "{query}"
-                    
-Retorne APENAS uma lista simples com no máximo 5 produtos mais relevantes.
-Para cada produto, retorne: EAN, Nome, Categoria.
-Formato: EAN | NOME | CATEGORIA (um por linha)
-Não inclua explicações, apenas a lista."""
+                    "text": f"""Encontre no catálogo de produtos o produto mais parecido com: "{query}"
+
+REGRAS:
+1. Retorne APENAS 1 produto (o mais relevante/similar)
+2. O nome do produto deve conter ou ser muito similar ao termo buscado
+3. Priorize produtos da categoria FRIGORIFICO, HORTI-FRUTI ou FOLHAGENS quando apropriado
+
+Formato de resposta (apenas uma linha):
+EAN | NOME_PRODUTO | CATEGORIA
+
+Exemplo: 550 | FRANGO ABATIDO kg | FRIGORIFICO, AVES"""
                 }]
             }
         ],
@@ -748,8 +753,8 @@ Não inclua explicações, apenas a lista."""
             }
         ],
         "generationConfig": {
-            "maxOutputTokens": 500,
-            "temperature": 0.1
+            "maxOutputTokens": 100,
+            "temperature": 0
         }
     }
     
