@@ -813,7 +813,18 @@ def busca_file_search_com_preco(produtos: list) -> str:
         "agua sanitaria": "7896221600012", # Dragão
         "kiboa": "7896221600012",
         "qboa": "7896221600012",
-        "quiboa": "7896221600012"
+        "quiboa": "7896221600012",
+        "arroz": "7898236717129",        # Arroz 101 1kg
+        "arroz branco": "7898236717129",
+        "cafe": "7896045109067",         # Café Santa Clara Extra Forte 250g
+        "café": "7896045109067",
+        "santa clara": "7896045109067",
+        "coca": "7894900011517",         # Coca Cola 2L
+        "coca cola": "7894900011517",
+        "monster": "70847022305",        # Monster Zero
+        "energetico": "70847022305",
+        "carne moida": "526",            # Carne Moída de Primeira
+        "moida": "526"
     }
 
     # Identificar EANs extras para buscar diretamente
