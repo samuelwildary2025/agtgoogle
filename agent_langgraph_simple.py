@@ -21,7 +21,7 @@ import os
 
 from config.settings import settings
 from config.logger import setup_logger
-from tools.http_tools import estoque, pedidos, alterar, ean_lookup, estoque_preco, busca_lote_produtos
+from tools.http_tools import estoque, pedidos, alterar, ean_lookup, estoque_preco, busca_lote_produtos, busca_file_search_com_preco
 from tools.time_tool import get_current_time, search_message_history
 from tools.redis_tools import (
     mark_order_sent, 
@@ -195,7 +195,8 @@ def estoque_preco_alias(ean: str) -> str:
 @tool("busca_lote")
 def busca_lote_tool(produtos: str) -> str:
     """
-    Busca MÚLTIPLOS produtos de uma vez em paralelo. Use quando o cliente pedir vários itens.
+    Busca MÚLTIPLOS produtos de uma vez usando Google File Search (RAG vetorizado).
+    Use quando o cliente pedir vários itens.
     
     Args:
         produtos: Lista de produtos separados por vírgula.
@@ -208,7 +209,14 @@ def busca_lote_tool(produtos: str) -> str:
     lista_produtos = [p.strip() for p in produtos.split(",") if p.strip()]
     if not lista_produtos:
         return "❌ Informe os produtos separados por vírgula."
-    return busca_lote_produtos(lista_produtos)
+    
+    # Usar File Search (RAG vetorizado) como fonte principal
+    try:
+        return busca_file_search_com_preco(lista_produtos)
+    except Exception as e:
+        logger.warning(f"File Search falhou, usando fallback: {e}")
+        # Fallback para busca antiga se File Search falhar
+        return busca_lote_produtos(lista_produtos)
 
 # Ferramentas ativas
 ACTIVE_TOOLS = [

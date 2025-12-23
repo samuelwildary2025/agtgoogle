@@ -698,3 +698,177 @@ def busca_lote_produtos(produtos: list[str]) -> str:
         resposta.append(f"\nNÃO_ENCONTRADOS: {', '.join(nao_encontrados)}")
     
     return "\n".join(resposta) if resposta else "Nenhum produto encontrado."
+
+
+# ============================================
+# Google File Search Integration
+# ============================================
+
+# Nome do FileSearchStore no Google
+FILE_SEARCH_STORE = "fileSearchStores/produtossupermercadoqueiroz-qhsuc929p2ie"
+
+def busca_file_search(query: str) -> str:
+    """
+    Busca produtos usando Google File Search (RAG vetorizado).
+    Usa embeddings para encontrar produtos semanticamente similares.
+    
+    Args:
+        query: Texto de busca (ex: "frango abatido", "água sanitária")
+    
+    Returns:
+        String formatada com produtos encontrados
+    """
+    import os
+    
+    api_key = os.getenv("GOOGLE_API_KEY") or getattr(settings, 'google_api_key', None)
+    if not api_key:
+        logger.error("GOOGLE_API_KEY não configurada")
+        return "❌ Erro de configuração: API key não encontrada."
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    
+    payload = {
+        "contents": [
+            {
+                "parts": [{
+                    "text": f"""Busque no catálogo de produtos o seguinte: "{query}"
+                    
+Retorne APENAS uma lista simples com no máximo 5 produtos mais relevantes.
+Para cada produto, retorne: EAN, Nome, Categoria.
+Formato: EAN | NOME | CATEGORIA (um por linha)
+Não inclua explicações, apenas a lista."""
+                }]
+            }
+        ],
+        "tools": [
+            {
+                "fileSearch": {
+                    "fileSearchStoreNames": [FILE_SEARCH_STORE]
+                }
+            }
+        ],
+        "generationConfig": {
+            "maxOutputTokens": 500,
+            "temperature": 0.1
+        }
+    }
+    
+    try:
+        logger.info(f"🔍 File Search: buscando '{query}'")
+        response = requests.post(url, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            
+            if text:
+                logger.info(f"✅ File Search retornou {len(text)} chars")
+                return text
+            else:
+                return "Nenhum produto encontrado."
+                
+        else:
+            logger.error(f"❌ File Search erro: {response.status_code} - {response.text[:200]}")
+            return f"Erro na busca: {response.status_code}"
+            
+    except Exception as e:
+        logger.error(f"❌ File Search exception: {e}")
+        return f"Erro ao buscar: {str(e)}"
+
+
+def busca_file_search_com_preco(produtos: list) -> str:
+    """
+    Busca múltiplos produtos no File Search e depois consulta preço na API.
+    
+    Args:
+        produtos: Lista de produtos para buscar
+    
+    Returns:
+        String formatada com produtos e preços
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import time
+    
+    start_time = time.time()
+    logger.info(f"🚀 Iniciando busca File Search + Preço para {len(produtos)} produtos")
+    
+    def buscar_produto(produto: str) -> dict:
+        """Busca um produto no File Search e depois pega o preço."""
+        try:
+            # 1. Buscar no File Search
+            fs_result = busca_file_search(produto)
+            
+            # 2. Extrair primeiro EAN da resposta
+            ean = None
+            preco = None
+            nome = produto
+            
+            # Parse simples: buscar padrão "EAN | NOME | CATEGORIA"
+            lines = fs_result.strip().split('\n')
+            for line in lines:
+                if '|' in line:
+                    parts = [p.strip() for p in line.split('|')]
+                    if len(parts) >= 2:
+                        potential_ean = parts[0]
+                        # Verificar se é EAN válido (só números)
+                        if potential_ean.isdigit() or (len(potential_ean) > 3 and potential_ean.replace(' ', '').isdigit()):
+                            ean = potential_ean.replace(' ', '')
+                            nome = parts[1] if len(parts) > 1 else produto
+                            break
+            
+            if not ean:
+                # Tentar extrair EAN de outra forma
+                import re
+                ean_match = re.search(r'\b(\d{3,13})\b', fs_result)
+                if ean_match:
+                    ean = ean_match.group(1)
+            
+            # 3. Consultar preço se encontrou EAN
+            if ean:
+                preco_result = estoque_preco(ean)
+                try:
+                    preco_data = json.loads(preco_result)
+                    if preco_data and isinstance(preco_data, list) and len(preco_data) > 0:
+                        item = preco_data[0]
+                        nome = item.get("produto", item.get("nome", nome))
+                        preco = item.get("preco", 0)
+                        return {"produto": nome, "preco": preco, "ean": ean, "erro": None}
+                except:
+                    pass
+            
+            return {"produto": nome, "preco": None, "ean": ean, "erro": "Preço não encontrado"}
+            
+        except Exception as e:
+            logger.error(f"Erro ao buscar {produto}: {e}")
+            return {"produto": produto, "preco": None, "ean": None, "erro": str(e)}
+    
+    # Executar buscas em paralelo
+    resultados = []
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(buscar_produto, p): p for p in produtos}
+        for future in as_completed(futures):
+            resultados.append(future.result())
+    
+    elapsed = time.time() - start_time
+    logger.info(f"✅ File Search + Preço concluído em {elapsed:.2f}s")
+    
+    # Formatar resposta
+    encontrados = []
+    nao_encontrados = []
+    
+    for r in resultados:
+        if r["preco"] is not None:
+            encontrados.append(f"• {r['produto']} - R${r['preco']:.2f}")
+        else:
+            nao_encontrados.append(r['produto'])
+    
+    resposta = []
+    if encontrados:
+        resposta.append("PRODUTOS_ENCONTRADOS:")
+        resposta.extend(encontrados)
+    
+    if nao_encontrados:
+        resposta.append(f"\nNÃO_ENCONTRADOS: {', '.join(nao_encontrados)}")
+    
+    return "\n".join(resposta) if resposta else "Nenhum produto encontrado."
+
