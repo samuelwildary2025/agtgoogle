@@ -532,11 +532,16 @@ def estoque_preco(ean: str) -> str:
             return None
 
         # [OTIMIZAÇÃO] Filtro estrito para saída
+        # EXCEÇÃO: EAN 550 (frango abatido) sempre disponível mesmo com estoque negativo
+        ALWAYS_AVAILABLE_EANS = ["550"]
+        is_always_available = ean_digits in ALWAYS_AVAILABLE_EANS
+        
         sanitized: list[Dict[str, Any]] = []
         for it in items:
             if not isinstance(it, dict):
                 continue
-            if not _is_available(it):
+            # Se é EAN especial, não verificar estoque; caso contrário, verificar
+            if not is_always_available and not _is_available(it):
                 continue  # manter apenas itens com estoque/disponibilidade
 
             # Cria dict limpo apenas com campos essenciais
