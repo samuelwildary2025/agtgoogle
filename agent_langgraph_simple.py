@@ -423,14 +423,14 @@ def run_agent_langgraph(telefone: str, mensagem: str) -> Dict[str, Any]:
         output = ""
         if isinstance(result, dict) and "messages" in result:
             messages = result["messages"]
-            logger.debug(f"📨 Total de mensagens no resultado: {len(messages) if messages else 0}")
+            logger.info(f"📨 Total de mensagens no resultado: {len(messages) if messages else 0}")
             if messages:
-                # Log das últimas mensagens para debug
-                for i, msg in enumerate(messages[-5:]):
+                # Log TODAS as mensagens para debug intensivo
+                for i, msg in enumerate(messages):
                     msg_type = type(msg).__name__
                     has_tool_calls = hasattr(msg, 'tool_calls') and msg.tool_calls
-                    content_preview = str(msg.content)[:100] if msg.content else "(vazio)"
-                    logger.debug(f"📝 Msg[{i}] type={msg_type} tool_calls={has_tool_calls} content={content_preview}")
+                    content_preview = str(msg.content)[:150] if msg.content else "(vazio)"
+                    logger.info(f"📝 Msg[{i}] type={msg_type} tool_calls={has_tool_calls} content={content_preview}")
                 
                 # Tentar pegar a última mensagem AI que tenha conteúdo real (não tool call)
                 for msg in reversed(messages):
@@ -440,6 +440,7 @@ def run_agent_langgraph(telefone: str, mensagem: str) -> Dict[str, Any]:
                     
                     # Ignorar mensagens que são tool calls (não tem resposta textual)
                     if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                        logger.info(f"⏭️ Pulando AIMessage (é tool_call)")
                         continue
                     
                     # Extrair conteúdo
@@ -447,12 +448,15 @@ def run_agent_langgraph(telefone: str, mensagem: str) -> Dict[str, Any]:
                     
                     # Ignorar mensagens vazias
                     if not content or not content.strip():
+                        logger.info(f"⏭️ Pulando AIMessage (conteúdo vazio)")
                         continue
                     
                     # Ignorar mensagens que parecem ser dados estruturados
                     if content.strip().startswith(("[", "{")):
+                        logger.info(f"⏭️ Pulando AIMessage (JSON estruturado)")
                         continue
                     
+                    logger.info(f"✅ AIMessage selecionada: {content[:100]}...")
                     output = content
                     break
         
