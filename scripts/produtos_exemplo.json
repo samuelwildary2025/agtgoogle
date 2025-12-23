@@ -1,0 +1,56 @@
+[
+  {
+    "ean": "550",
+    "nome": "FRANGO ABATIDO INTEIRO",
+    "sinonimos": [
+      "frango",
+      "frango inteiro",
+      "galinha"
+    ],
+    "preco": 15.99,
+    "unidade": "kg",
+    "categoria": "açougue",
+    "descricao": "Frango abatido inteiro resfriado"
+  },
+  {
+    "ean": "751320919434",
+    "nome": "SALSINHA EFRAIM",
+    "sinonimos": [
+      "salsa",
+      "salsinha",
+      "tempero verde"
+    ],
+    "preco": 2.59,
+    "unidade": "un",
+    "categoria": "hortifruti",
+    "descricao": "Salsinha fresca para tempero"
+  },
+  {
+    "ean": "7896221600012",
+    "nome": "AGUA SANITARIA DRAGAO 1L",
+    "sinonimos": [
+      "agua sanitaria",
+      "kiboa",
+      "quiboa",
+      "clorito",
+      "desinfetante"
+    ],
+    "preco": 3.49,
+    "unidade": "un",
+    "categoria": "limpeza",
+    "descricao": "Água sanitária 1 litro"
+  },
+  {
+    "ean": "243",
+    "nome": "COXA SOBRECOXA MQ",
+    "sinonimos": [
+      "sobrecoxa",
+      "coxa de frango",
+      "coxa e sobrecoxa"
+    ],
+    "preco": 12.99,
+    "unidade": "kg",
+    "categoria": "açougue",
+    "descricao": "Coxa e sobrecoxa de frango"
+  }
+]

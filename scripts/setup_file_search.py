@@ -1,100 +1,111 @@
 """
 Script para configurar o Google File Search com produtos do supermercado
-Uso: python scripts/setup_file_search.py
+Usa REST API diretamente (mais compatível)
 
-Requisitos:
-- pip install google-genai
-- Exportar GEMINI_API_KEY ou passar como argumento
+Uso: python3 scripts/setup_file_search.py --criar
 """
 
 import os
 import json
 import time
-from google import genai
-from google.genai import types
+import requests
 
-# Configurar cliente
-api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    raise ValueError("Configure GEMINI_API_KEY ou GOOGLE_API_KEY")
+# API key
+API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+if not API_KEY:
+    raise ValueError("Configure GOOGLE_API_KEY ou GEMINI_API_KEY")
 
-client = genai.Client(api_key=api_key)
+BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
-# Nome do store (pode ser customizado)
-STORE_NAME = "produtos-supermercado-queiroz"
+# Nome do store
+STORE_DISPLAY_NAME = "produtos-supermercado-queiroz"
 
 
 def criar_file_search_store():
     """Cria um novo FileSearchStore para os produtos."""
-    print(f"📦 Criando FileSearchStore: {STORE_NAME}")
+    print(f"📦 Criando FileSearchStore: {STORE_DISPLAY_NAME}")
     
-    file_search_store = client.file_search_stores.create(
-        config={'display_name': STORE_NAME}
-    )
+    url = f"{BASE_URL}/fileSearchStores?key={API_KEY}"
+    payload = {"displayName": STORE_DISPLAY_NAME}
     
-    print(f"✅ Store criado: {file_search_store.name}")
-    return file_search_store
+    response = requests.post(url, json=payload)
+    
+    if response.status_code == 200:
+        data = response.json()
+        print(f"✅ Store criado: {data.get('name')}")
+        return data
+    else:
+        print(f"❌ Erro: {response.status_code}")
+        print(response.text)
+        return None
 
 
 def listar_stores():
     """Lista todos os FileSearchStores existentes."""
     print("📋 Listando stores existentes:")
-    for store in client.file_search_stores.list():
-        print(f"  - {store.name} ({store.display_name})")
-    return list(client.file_search_stores.list())
+    
+    url = f"{BASE_URL}/fileSearchStores?key={API_KEY}"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        data = response.json()
+        stores = data.get("fileSearchStores", [])
+        for store in stores:
+            print(f"  - {store.get('name')} ({store.get('displayName')})")
+        return stores
+    else:
+        print(f"❌ Erro: {response.status_code}")
+        print(response.text)
+        return []
 
 
 def upload_produtos(store_name: str, arquivo_json: str):
     """
     Faz upload de um arquivo JSON de produtos para o FileSearchStore.
-    O arquivo deve conter uma lista de produtos com nome, ean, preço, etc.
     """
     print(f"📤 Fazendo upload de {arquivo_json} para {store_name}")
     
-    # Iniciar upload
-    operation = client.file_search_stores.upload_to_file_search_store(
-        file=arquivo_json,
-        file_search_store_name=store_name,
-        config={
-            'display_name': os.path.basename(arquivo_json),
+    # Primeiro, fazer upload do arquivo para a Files API
+    upload_url = f"{BASE_URL}/files?key={API_KEY}"
+    
+    with open(arquivo_json, 'rb') as f:
+        file_content = f.read()
+    
+    # Metadata
+    metadata = {
+        "file": {
+            "displayName": os.path.basename(arquivo_json)
         }
-    )
+    }
     
-    # Aguardar conclusão
-    print("⏳ Aguardando processamento...")
-    while not operation.done:
-        time.sleep(5)
-        operation = client.operations.get(operation)
-        print("  ...ainda processando")
+    # Upload multipart
+    files = {
+        'metadata': (None, json.dumps(metadata), 'application/json'),
+        'file': (os.path.basename(arquivo_json), file_content, 'application/json')
+    }
     
-    print("✅ Upload concluído e indexado!")
-    return operation
-
-
-def testar_busca(store_name: str, query: str):
-    """Testa uma busca semântica no FileSearchStore."""
-    print(f"\n🔍 Testando busca: '{query}'")
+    # Upload para o File Search Store
+    url = f"https://generativelanguage.googleapis.com/upload/v1beta/{store_name}:uploadfile?key={API_KEY}"
     
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=f"Encontre produtos relacionados a: {query}. Liste nome, preço e EAN.",
-        config=types.GenerateContentConfig(
-            tools=[
-                types.Tool(
-                    file_search=types.FileSearch(
-                        file_search_store_names=[store_name]
-                    )
-                )
-            ]
+    with open(arquivo_json, 'rb') as f:
+        response = requests.post(
+            url,
+            files={'file': (os.path.basename(arquivo_json), f, 'application/json')},
+            data={'display_name': os.path.basename(arquivo_json)}
         )
-    )
     
-    print(f"📝 Resposta:\n{response.text}")
-    return response
+    if response.status_code in [200, 201]:
+        print("✅ Upload concluído!")
+        print(response.json())
+        return response.json()
+    else:
+        print(f"❌ Erro no upload: {response.status_code}")
+        print(response.text)
+        return None
 
 
 def criar_arquivo_produtos_exemplo():
-    """Cria um arquivo JSON de exemplo com produtos."""
+    """Cria um arquivo JSON de exemplo com produtos para teste."""
     produtos = [
         {
             "ean": "550",
@@ -117,11 +128,20 @@ def criar_arquivo_produtos_exemplo():
         {
             "ean": "7896221600012",
             "nome": "AGUA SANITARIA DRAGAO 1L",
-            "sinonimos": ["agua sanitaria", "clorito", "desinfetante"],
+            "sinonimos": ["agua sanitaria", "kiboa", "quiboa", "clorito", "desinfetante"],
             "preco": 3.49,
             "unidade": "un",
             "categoria": "limpeza",
             "descricao": "Água sanitária 1 litro"
+        },
+        {
+            "ean": "243",
+            "nome": "COXA SOBRECOXA MQ",
+            "sinonimos": ["sobrecoxa", "coxa de frango", "coxa e sobrecoxa"],
+            "preco": 12.99,
+            "unidade": "kg",
+            "categoria": "açougue",
+            "descricao": "Coxa e sobrecoxa de frango"
         }
     ]
     
@@ -141,7 +161,6 @@ if __name__ == "__main__":
     parser.add_argument("--listar", action="store_true", help="Listar stores existentes")
     parser.add_argument("--upload", type=str, help="Fazer upload de arquivo JSON")
     parser.add_argument("--store", type=str, help="Nome do store para operações")
-    parser.add_argument("--buscar", type=str, help="Testar busca com uma query")
     parser.add_argument("--exemplo", action="store_true", help="Criar arquivo de produtos de exemplo")
     
     args = parser.parse_args()
@@ -154,18 +173,15 @@ if __name__ == "__main__":
     
     if args.criar:
         store = criar_file_search_store()
-        print(f"\n💡 Use este nome no agente: {store.name}")
+        if store:
+            print(f"\n💡 Use este nome no agente: {store.get('name')}")
     
     if args.upload and args.store:
         upload_produtos(args.store, args.upload)
     
-    if args.buscar and args.store:
-        testar_busca(args.store, args.buscar)
-    
-    if not any([args.criar, args.listar, args.upload, args.buscar, args.exemplo]):
+    if not any([args.criar, args.listar, args.upload, args.exemplo]):
         print("Uso:")
-        print("  python setup_file_search.py --criar              # Criar store")
-        print("  python setup_file_search.py --listar             # Listar stores")
-        print("  python setup_file_search.py --exemplo            # Criar JSON exemplo")
-        print("  python setup_file_search.py --store NOME --upload arquivo.json")
-        print("  python setup_file_search.py --store NOME --buscar 'frango'")
+        print("  python3 setup_file_search.py --criar              # Criar store")
+        print("  python3 setup_file_search.py --listar             # Listar stores")
+        print("  python3 setup_file_search.py --exemplo            # Criar JSON exemplo")
+        print("  python3 setup_file_search.py --store NOME --upload arquivo.json")
