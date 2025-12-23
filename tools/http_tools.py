@@ -789,6 +789,7 @@ Exemplo: 550 | FRANGO ABATIDO kg | FRIGORIFICO, AVES"""
 def busca_file_search_com_preco(produtos: list) -> str:
     """
     Busca múltiplos produtos no File Search e depois consulta preço na API.
+    Também verifica produtos críticos por palavra-chave (Hybrid Search).
     
     Args:
         produtos: Lista de produtos para buscar
@@ -802,6 +803,43 @@ def busca_file_search_com_preco(produtos: list) -> str:
     start_time = time.time()
     logger.info(f"🚀 Iniciando busca File Search + Preço para {len(produtos)} produtos")
     
+    # Mapeamento de produtos críticos (Fallback)
+    # Garante que itens básicos sempre sejam encontrados
+    CRITICAL_MAPPING = {
+        "frango": "550",          # Frango Abatido
+        "salsa": "751320919434",  # Salsinha Efraim
+        "salsinha": "751320919434",
+        "cebolinha": "751320919397",
+        "agua sanitaria": "7896221600012", # Dragão
+        "kiboa": "7896221600012",
+        "qboa": "7896221600012",
+        "quiboa": "7896221600012"
+    }
+
+    # Identificar EANs extras para buscar diretamente
+    eans_extras = set()
+    for p in produtos:
+        p_norm = p.lower()
+        for k, ean in CRITICAL_MAPPING.items():
+            if k in p_norm:
+                # Evita falso positivo grosseiro (ex: evitar que "frango" pegue em "tempero de frango" se não for o foco, mas para MVP ok)
+                eans_extras.add(ean)
+    
+    if eans_extras:
+        logger.info(f"🛡️ Fallback ativado para EANs: {eans_extras}")
+
+    def buscar_ean_direto(ean: str) -> dict:
+        """Busca direta por EAN para o fallback."""
+        try:
+            preco_result = estoque_preco(ean)
+            preco_data = json.loads(preco_result)
+            if preco_data and isinstance(preco_data, list) and len(preco_data) > 0:
+                item = preco_data[0]
+                return {"produto": item.get("produto"), "preco": item.get("preco"), "ean": ean, "erro": None}
+        except:
+            pass
+        return {"produto": f"EAN {ean}", "preco": None, "ean": ean, "erro": "Não encontrado"}
+
     def buscar_produto(produto: str) -> dict:
         """Busca um produto no File Search e depois pega o preço."""
         try:
@@ -854,13 +892,27 @@ def busca_file_search_com_preco(produtos: list) -> str:
     
     # Executar buscas em paralelo
     resultados = []
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {executor.submit(buscar_produto, p): p for p in produtos}
-        for future in as_completed(futures):
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        # Busca vetorial (File Search)
+        futures_fs = {executor.submit(buscar_produto, p): p for p in produtos}
+        
+        # Busca direta (Fallback)
+        futures_fb = {executor.submit(buscar_ean_direto, ean): ean for ean in eans_extras}
+        
+        # Coletar File Search
+        for future in as_completed(futures_fs):
             resultados.append(future.result())
+            
+        # Coletar Fallback (evitar duplicatas de EAN se possível, mas ok repetir na lista final)
+        found_eans = [r.get("ean") for r in resultados if r.get("ean")]
+        for future in as_completed(futures_fb):
+            res = future.result()
+            # Só adiciona se o EAN ainda não foi encontrado pelo File Search
+            if res.get("ean") not in found_eans and res.get("preco") is not None:
+                resultados.append(res)
     
     elapsed = time.time() - start_time
-    logger.info(f"✅ File Search + Preço concluído em {elapsed:.2f}s")
+    logger.info(f"✅ File Search + Fallback concluído em {elapsed:.2f}s")
     
     # Formatar resposta
     encontrados = []
@@ -868,17 +920,23 @@ def busca_file_search_com_preco(produtos: list) -> str:
     
     for r in resultados:
         if r["preco"] is not None:
+            # Check if redundant name
             encontrados.append(f"• {r['produto']} - R${r['preco']:.2f}")
         else:
-            nao_encontrados.append(r['produto'])
+            # Só adiciona a lista de não encontrados se não for um EAN extra que falhou
+            if "EAN" not in r['produto']:
+                nao_encontrados.append(r['produto'])
     
     resposta = []
     if encontrados:
         resposta.append("PRODUTOS_ENCONTRADOS:")
-        resposta.extend(encontrados)
+        resposta.extend(list(set(encontrados))) # Remove duplicatas exatas de string
     
     if nao_encontrados:
-        resposta.append(f"\nNÃO_ENCONTRADOS: {', '.join(nao_encontrados)}")
+        # Filtrar não encontrados se algum forçado tiver dado certo para o mesmo termo? 
+        # Difícil saber qual termo gerou qual fallback aqui sem mapeamento reverso complexo.
+        # Deixa assim, o usuário vê o que achou.
+        resposta.append(f"\nNÃO_ENCONTRADOS: {', '.join(set(nao_encontrados))}")
     
     return "\n".join(resposta) if resposta else "Nenhum produto encontrado."
 
