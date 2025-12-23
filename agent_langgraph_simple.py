@@ -432,8 +432,19 @@ def run_agent_langgraph(telefone: str, mensagem: str) -> Dict[str, Any]:
                     content_preview = str(msg.content)[:150] if msg.content else "(vazio)"
                     logger.info(f"📝 Msg[{i}] type={msg_type} tool_calls={has_tool_calls} content={content_preview}")
                 
-                # Tentar pegar a última mensagem AI que tenha conteúdo real (não tool call)
-                for msg in reversed(messages):
+                # IMPORTANTE: Encontrar o índice da última HumanMessage (a mensagem atual do usuário)
+                # Só queremos AIMessages que vieram DEPOIS dela (resposta do turno atual)
+                last_human_idx = -1
+                for i, msg in enumerate(messages):
+                    if isinstance(msg, HumanMessage):
+                        last_human_idx = i
+                
+                # Filtrar apenas mensagens após o último HumanMessage
+                current_turn_messages = messages[last_human_idx + 1:] if last_human_idx >= 0 else messages
+                logger.info(f"🔍 Buscando resposta em {len(current_turn_messages)} msgs do turno atual (após idx {last_human_idx})")
+                
+                # Tentar pegar a última mensagem AI do turno atual que tenha conteúdo real
+                for msg in reversed(current_turn_messages):
                     # Verificar se é AIMessage
                     if not isinstance(msg, AIMessage):
                         continue
