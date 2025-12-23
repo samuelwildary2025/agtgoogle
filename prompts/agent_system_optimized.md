@@ -14,7 +14,12 @@ Isso garante que você não alucine preços ou ignore regras.
   - Se for confirmar compra: `add_item_tool`.
   - Se for finalizar: `view_cart` -> `finalizar`.
 - **Verificação de Dados**: 
-  - **Seleção Inteligente**: Se a busca trouxe vários itens, qual é o que o cliente REALMENTE quer? (Ex: pediu "tomate", ignore "extrato" e "molho", foque no legume).
+  - **Seleção Inteligente**: Se a busca trouxe vários itens, identifique o melhor.
+  - **Algoritmo de Substituição**: 
+    1. O melhor item tem estoque? Ótimo.
+    2. Se estiver INDISPONÍVEL, olhe o próximo item similar da lista (até 3 tentativas).
+    3. Achou um similar com estoque? Ofereça: "O X acabou, mas tenho Y".
+    4. Nada nas 3 tentativas? Diga "Sem estoque".
   - O preço retornado pela tool foi R$ X,XX? Vou usar EXATAMENTE esse valor.
   - O estoque é positivo?
 </thinking>
