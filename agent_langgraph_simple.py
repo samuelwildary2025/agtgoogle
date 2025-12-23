@@ -341,6 +341,18 @@ def run_agent_langgraph(telefone: str, mensagem: str) -> Dict[str, Any]:
         # IMPORTANTE: Injetar telefone no contexto para que o LLM saiba qual usar nas tools
         telefone_context = f"[TELEFONE_CLIENTE: {telefone}]\n\n"
         
+        # 3.1 Carregar histórico recente do Postgres para dar contexto
+        # Isso resolve o problema de "amnésia" se o servidor reiniciar ou MemorySaver estiver vazio
+        previous_messages = []
+        if history_handler:
+            try:
+                # Pega as últimas 10 mensagens (5 turnos) para contexto
+                stored_messages = history_handler.messages[-10:]
+                previous_messages = stored_messages
+                logger.info(f"📜 Carregado {len(previous_messages)} msgs do histórico para contexto.")
+            except Exception as e:
+                logger.error(f"Erro ao ler histórico: {e}")
+
         if image_url:
             # Formato multimodal para GPT-4o / GPT-4o-mini
             message_content = [
@@ -350,11 +362,13 @@ def run_agent_langgraph(telefone: str, mensagem: str) -> Dict[str, Any]:
                     "image_url": {"url": image_url}
                 }
             ]
-            initial_message = HumanMessage(content=message_content)
+            current_message = HumanMessage(content=message_content)
         else:
-            initial_message = HumanMessage(content=telefone_context + clean_message)
+            current_message = HumanMessage(content=telefone_context + clean_message)
 
-        initial_state = {"messages": [initial_message]}
+        # Monta o estado inicial com histórico + mensagem atual
+        # Nota: LangGraph com MemorySaver fará merge, mas se estiver vazio (restart), isso garante o contexto.
+        initial_state = {"messages": previous_messages + [current_message]}
         config = {"configurable": {"thread_id": telefone}, "recursion_limit": 100}
         
         logger.info("Executando agente...")
