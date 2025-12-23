@@ -189,7 +189,14 @@
         }
     },
     {
-        "content": "Regra de Estoque: Nunca diga 'sem estoque' ou 'indisponível'. Sempre diga 'Não encontrei esse item agora. Posso sugerir algo parecido?'.",
+        "content": "Dicionário: 'tomate' pode ser tomate longa vida (tradicional) ou tomate cajá.",
+        "metadata": {
+            "type": "dictionary",
+            "term": "tomate"
+        }
+    },
+    {
+        "content": "Regra de Estoque: Se o produto foi encontrado mas está sem estoque (Indisponível), seja honesta: 'Olha, esse está em falta agora.'. Ofereça substituto se houver.",
         "metadata": {
             "type": "rule",
             "category": "estoque"
