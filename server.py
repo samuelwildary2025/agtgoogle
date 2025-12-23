@@ -123,8 +123,7 @@ def process_pdf_uaz(message_id: str) -> Optional[str]:
 
 def transcribe_audio_uaz(message_id: str) -> Optional[str]:
     """
-    Transcreve áudio usando Google Gemini ou OpenAI Whisper.
-    Prioriza Gemini se configurado, fallback para Whisper.
+    Transcreve áudio usando Google Gemini.
     """
     if not message_id: return None
     
@@ -144,13 +143,13 @@ def transcribe_audio_uaz(message_id: str) -> Optional[str]:
         logger.error(f"Erro ao baixar áudio para transcrição: {e}")
         return None
 
-    # 3. Tenta usar Google Gemini
+    # 3. Transcrever com Google Gemini
     if settings.google_api_key:
         try:
             from google import genai
             import tempfile
-            import os as os_module
-
+            import os
+            
             client = genai.Client(api_key=settings.google_api_key)
 
             # Determinar extensão
@@ -188,36 +187,9 @@ def transcribe_audio_uaz(message_id: str) -> Optional[str]:
 
         except Exception as e:
             logger.error(f"Erro transcrição Gemini: {e}")
-            # Se falhar, tenta OpenAI abaixo
+            return None
 
-    # 4. Fallback: Tenta usar OpenAI Whisper
-    if settings.openai_api_key:
-        try:
-            from openai import OpenAI
-            import io
-
-            logger.info("🎧 Tentando transcrição com OpenAI Whisper...")
-            client = OpenAI(api_key=settings.openai_api_key)
-            
-            # Whisper requer arquivo com nome/extensão
-            # Usando BytesIO com name attribute hack
-            f = io.BytesIO(audio_data)
-            f.name = "audio.ogg" # Whisper aceita OGG
-
-            transcript = client.audio.transcriptions.create(
-                model="whisper-1", 
-                file=f,
-                language="pt"
-            )
-            
-            text = transcript.text.strip()
-            if text:
-                logger.info(f"✅ Áudio transcrito com Whisper: {text[:50]}...")
-                return text
-        except Exception as e:
-            logger.error(f"Erro transcrição OpenAI: {e}")
-
-    logger.warning("❌ Falha na transcrição: sem chaves API válidas ou erros em ambos providers.")
+    logger.warning("❌ Falha na transcrição: chave do Google não configurada ou erro no processo.")
     return None
 
 def _extract_incoming(payload: Dict[str, Any]) -> Dict[str, Any]:
