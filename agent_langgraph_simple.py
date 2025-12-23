@@ -457,18 +457,27 @@ def run_agent_langgraph(telefone: str, mensagem: str) -> Dict[str, Any]:
                     # Extrair conteúdo
                     content = msg.content if isinstance(msg.content, str) else str(msg.content)
                     
+                    # NOVO: Remover bloco <thinking>...</thinking> antes de processar
+                    # O modelo pode incluir o pensamento junto com a resposta
+                    clean_content = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL).strip()
+                    
+                    # Se o conteúdo era APENAS thinking block, clean_content será vazio
+                    if not clean_content:
+                        logger.info(f"⏭️ Pulando AIMessage (apenas bloco <thinking>)")
+                        continue
+                    
                     # Ignorar mensagens vazias
-                    if not content or not content.strip():
+                    if not clean_content.strip():
                         logger.info(f"⏭️ Pulando AIMessage (conteúdo vazio)")
                         continue
                     
                     # Ignorar mensagens que parecem ser dados estruturados
-                    if content.strip().startswith(("[", "{")):
+                    if clean_content.strip().startswith(("[", "{")):
                         logger.info(f"⏭️ Pulando AIMessage (JSON estruturado)")
                         continue
                     
-                    logger.info(f"✅ AIMessage selecionada: {content[:100]}...")
-                    output = content
+                    logger.info(f"✅ AIMessage selecionada: {clean_content[:100]}...")
+                    output = clean_content
                     break
         
         # Fallback se ainda estiver vazio
