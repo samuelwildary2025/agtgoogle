@@ -736,17 +736,19 @@ def busca_file_search(query: str) -> str:
         "contents": [
             {
                 "parts": [{
-                    "text": f"""Encontre no catálogo de produtos o produto mais parecido com: "{query}"
+                    "text": f"""Encontre no catálogo de produtos os itens mais parecidos com: "{query}"
 
 REGRAS:
-1. Retorne APENAS 1 produto (o mais relevante/similar)
-2. O nome do produto deve conter ou ser muito similar ao termo buscado
-3. Priorize produtos da categoria FRIGORIFICO, HORTI-FRUTI ou FOLHAGENS quando apropriado
+1. Retorne uma lista com até 10 produtos relevantes.
+2. Priorize produtos com estoque ou maior relevância semântica.
+3. Se a busca for genérica (ex: "arroz"), retorne marcas variadas se possível.
 
-Formato de resposta (apenas uma linha):
+Formato de resposta:
 EAN | NOME_PRODUTO | CATEGORIA
+EAN | NOME_PRODUTO | CATEGORIA
+...
 
-Exemplo: 550 | FRANGO ABATIDO kg | FRIGORIFICO, AVES"""
+Retorne APENAS a lista, sem textos explicativos."""
                 }]
             }
         ],
@@ -758,8 +760,8 @@ Exemplo: 550 | FRANGO ABATIDO kg | FRIGORIFICO, AVES"""
             }
         ],
         "generationConfig": {
-            "maxOutputTokens": 100,
-            "temperature": 0
+            "maxOutputTokens": 1000,
+            "temperature": 0.3
         }
     }
     
@@ -805,26 +807,18 @@ def busca_file_search_com_preco(produtos: list) -> str:
     
     # Mapeamento de produtos críticos (Fallback)
     # Garante que itens básicos sempre sejam encontrados
+    # Mapeamento de produtos críticos (Fallback)
+    # Mantendo apenas exceções técnicas essenciais
     CRITICAL_MAPPING = {
-        "frango": "550",          # Frango Abatido
+        "frango": "550",          # Frango Abatido (Commodity, muitas vezes ranking baixo)
         "salsa": "751320919434",  # Salsinha Efraim
         "salsinha": "751320919434",
         "cebolinha": "751320919397",
-        "agua sanitaria": "7896221600012", # Dragão
+        "agua sanitaria": "7896221600012", 
         "kiboa": "7896221600012",
         "qboa": "7896221600012",
-        "quiboa": "7896221600012",
-        "arroz": "7898236717129",        # Arroz 101 1kg
-        "arroz branco": "7898236717129",
-        "cafe": "7896045109067",         # Café Santa Clara Extra Forte 250g
-        "café": "7896045109067",
-        "santa clara": "7896045109067",
-        "coca": "7894900011517",         # Coca Cola 2L
-        "coca cola": "7894900011517",
-        "monster": "70847022305",        # Monster Zero
-        "energetico": "70847022305",
-        "carne moida": "526",            # Carne Moída de Primeira
-        "moida": "526"
+        "quiboa": "7896221600012"
+        # Removidos: arroz, cafe, coca, monster, carne moida (deixar o search trabalhar)
     }
 
     # Identificar EANs extras para buscar diretamente
